@@ -1,0 +1,135 @@
+Table of Content:
+Test 1: test_mem_allocate_start():  test memory manager where the memory malloced is at the start and need coalece for kfree
+Test 2: test_mem_allocate_middle(): test memory manager where the memory malloced is at the middle
+Test 3: test_sys_create(void): test if we can create process and add it to ready queue. 
+Test 4: test_get_next_proc(void): test dispatcher
+
+
+TEST 1:
+test_mem_allocate_start() {
+  kmeminit();
+  printFreeMem();
+  void *mallocSpace = kmalloc(16);
+  printFreeMem();
+  kfree(mallocSpace);
+  printFreeMem();
+}
+Test Description: after kmeminit(), print the free memory list so we can compare against it later. Then call kmalloc(16) which is supposed to allocate 16 bytes of memory from freemem. Then call kfree(justMalloc) where justMalloc is the memory space that is returned from the previous kmalloc function. Then print the free memory. It should be the same as the original free memory list.
+Sample output:
+(after keminit() print out the free memory list) 
+list addr: 37100 with size: 618260
+list addr: 1662976 with size: 2531327
+(after kmalloc(16) print out the free memory list)
+list addr: 37132 with size: 618228
+list addr: 1662976 with size: 2531327
+(after kfree(mallocSpace) print out the free memory list)
+list addr: 37100 with size: 618260
+list addr: 1662976 with size: 2531327
+
+TEST 2:
+test_mem_allocate_middle() {
+  kmeminit();
+  printFreeMem();
+  void *mallocSpace = kmalloc(868351);
+  printFreeMem();
+  kfree(mallocSpace);
+  printFreeMem();
+}
+Test Description: after kmeminit(), print the free memory list so we can compare against it later. Then call kmalloc(868351) which is supposed to allocate 868351 bytes of memory from freemem. The memory before HOLESTART would not be enough for kmalloc, so we need to use up all the memory space after HOLEEND. Then call kfree(justMalloc) where justMalloc is the memory space that is returned from the previous kmalloc function. Then print the free memory. It should be the same as the original free memory list.
+Sample output:
+(after keminit() print out the free memory list) 
+list addr: 37100 with size: 618260
+list addr: 1662976 with size: 2531327
+(after kmalloc(868351) print out the free memory list)
+list addr: 37100 with size: 618260
+(after kfree(mallocSpace) print out the free memory list)
+list addr: 37100 with size: 618260
+list addr: 1662976 with size: 2531327
+
+TEST 3:
+Test Description: create two functions sys_create_fn1 and sys_create_fn2. and takes these two function pointers call syscreate(). Then print the pcb ready queue the ready queue and the stopped queue.
+
+// stub function2 for syscreate
+void sys_create_fn1(void) {
+    kprintf("fn1 created\n");
+    sysstop();
+}
+
+// stub function2 for sycreate
+void sys_create_fn2(void) {
+    kprintf("fn2 created\n");
+    sysstop();
+}
+
+// test syscreate
+void test_sys_create(void) {
+  syscall(&sys_create_fn1, KERNEL_STACK);
+  syscall(&sys_create_fn1, KERNAL_STACK);
+  print_pcb_queue(READY);
+  print_pcb_queue(STOPPED);
+}
+
+TEST 4:
+get_next_proc(): create three dummy functions and then call print_pcb_ready(READY) to print out the ready queue. Then dequeue these three processes from the ready queue, push them onto the stop queue and print out the ready queue and the stop quuee.
+/**
+ * Tests get_next_proc() uses FIFO queue
+ */
+static void test_get_next_proc(void) {
+    for (int i = 0; i < 3; i++) {
+        create(&dummy, INIT_STACK);
+    }
+    print_pcb_queue(READY);
+
+    for (int i = 1; i <= 3; i++) {
+        pcb_t* process = dequeuepcb(READY);    
+        enqueuepcb(STOPPED, process);
+    }
+
+    print_pcb_queue(READY);
+    print_pcb_queue(STOPPED);
+}
+
+/**
+ * Debugging function to help print queue contents
+ * @param queue: the queue to dump
+ */
+void print_pcb_queue(process_state_enum_t state) {
+
+    if (state == READY){
+      //change the state in new_pcb
+      pcb_queue_t* temp = ready_queue;
+      while(temp != NULL) {
+        kprintf("{PID: %d, state: %d}", temp->pid);
+        temp = temp->next;
+      }
+    }
+    kprintf("\n");
+    if (state == STOPPED){
+      //change the state in new_pcb
+      pcb_queue_t* temp = stopped_queue;
+      while(temp != NULL) {
+        kprintf("{PID: %d, state: %d}", temp->pid);
+        temp = temp->next;
+      }
+    }
+
+}
+
+Sample output:
+"creating proc0";
+"creating proc1"
+"creating proc2"
+// print_pcb_queue
+"ready queue:"
+"PID: 0, state: 0";
+"PID: 1, state: 0";
+"PID: 2, state: 0";
+"stop queue:"
+//empty
+// dequeue from ready queue and add to stopped queue
+"ready queue:"
+"stop queue:"
+"PID: 0, state: 1";
+"PID: 1, state: 2";
+"PID: 2, state: 3";
+
